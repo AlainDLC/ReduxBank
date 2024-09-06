@@ -1,13 +1,73 @@
-import { type } from "@testing-library/user-event/dist/type";
+import { createSlice } from "@reduxjs/toolkit";
 
-const initialStateAccount = {
+const initialState = {
   balance: 0,
   loan: 0,
   loanPurpose: "",
   isLoading: false,
 };
 
-export default function acountReducer(state = initialStateAccount, action) {
+const accountSlice = createSlice({
+  name: "account",
+  initialState,
+  reducers: {
+    deposit(state, action) {
+      state.balance += action.payload;
+      state.isLoading = false;
+    },
+    withdraw(state, action) {
+      state.balance -= action.payload;
+    },
+    requestLoan: {
+      prepare(amount, purpose) {
+        return {
+          payload: { amount, purpose },
+        };
+      },
+
+      reducer(state, action) {
+        if (state.loan > 0) return;
+
+        state.loan = action.payload.amount;
+        state.loanPurpose = action.payload.purpose;
+        state.balance = state.balance + action.payload.amount;
+      },
+    },
+    payLoan(state) {
+      if (state.balance < state.loan) {
+        // Handle insufficient balance case, maybe throw an error or return state
+        return state; // or implement another logic
+      }
+      state.loan = 0;
+      state.loanPurpose = "";
+      state.balance -= state.loan;
+    },
+    convertingCurrency(state) {
+      state.isLoading = true;
+    },
+  },
+});
+
+export const { withdraw, requestLoan, payLoan } = accountSlice.actions;
+
+export function deposit(amount, currency) {
+  if (currency === "USD") return { type: "account/deposit", payload: amount };
+  const host = "api.frankfurter.app";
+  return async function (dispatch, getState) {
+    dispatch({ type: "account/convertingCurrency" });
+    // API CALL
+    const res = await fetch(
+      `https://${host}/latest?amount=${amount}&from=${currency}&to=USD`
+    );
+    const data = await res.json();
+    const coverted = data.rates.USD;
+    dispatch({ type: "account/deposit", payload: coverted });
+  };
+}
+
+export default accountSlice.reducer;
+/*
+export default function acountReducer(state = initialState, action) {
   switch (action.type) {
     case "account/deposit":
       return {
@@ -25,11 +85,15 @@ export default function acountReducer(state = initialStateAccount, action) {
         loanPurpose: action.payload.purpose,
         balance: state.balance + action.payload.amount,
       };
+
+
     case "account/payLoan":
       if (state.balance < state.loan) {
         // Handle insufficient balance case, maybe throw an error or return state
         return state; // or implement another logic
       }
+
+
       return {
         ...state,
         loan: 0,
@@ -69,3 +133,4 @@ export function requestLoan(amount, purpose) {
 export function payLoan() {
   return { type: "account/payLoan" };
 }
+*/
